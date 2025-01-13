@@ -17,7 +17,7 @@ function inventory_helper.get_all_inventory_items(player_data)
     for _, item in pairs(items) do
         table.insert(result, item)
         for _, sub_item in pairs(EntityGetAllChildren(item) or {}) do
-            table.insert(result, sub_item)
+            if table.contains(sub_item) then table.insert(result, sub_item) end
         end
     end
     return result
