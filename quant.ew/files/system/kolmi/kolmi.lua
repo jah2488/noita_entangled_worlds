@@ -19,6 +19,49 @@ local rpc = net.new_rpc_namespace()
 
 local module = {}
 
+-- EW-DIAG (GH #379 / #351 / #370): Kolmi becomes invincible in MP. Confirmed in
+-- code: non-authority peers get an "ew_immortal" component (clamps damage to ~0)
+-- and their HP is re-synced from the authority, so ONLY the boss-authority peer
+-- can damage Kolmi -- yet fight-start (rpc.spawn_kolmi) is gated on owning the
+-- SAMPO, not the boss. When sampo-owner != boss-owner the fight starts against an
+-- immortal puppet. This logs the ownership/immortal/shield state at key moments so
+-- a live run reveals the exact failing branch. Grep ew_log.txt for "EW-DIAG kolmi".
+-- Safe to remove once the root cause is confirmed and the real fix lands.
+local function diag_kolmi(tag, extra)
+    local kolmi = EntityGetClosestWithTag(0, 0, "boss_centipede")
+    local have_boss = kolmi ~= nil and kolmi ~= 0
+    local own_boss, immortal, shield_state = "n/a", "n/a", "none"
+    if have_boss then
+        own_boss = tostring(util.do_i_own(kolmi))
+        local imm = EntityGetFirstComponentIncludingDisabled(kolmi, "LuaComponent", "ew_immortal")
+        immortal = tostring(imm ~= nil)
+        for _, child in ipairs(EntityGetAllChildren(kolmi) or {}) do
+            if EntityGetName(child) == "shield_entity" then
+                -- presence only; on/off history comes from the "kolmi_shield" diag lines
+                shield_state = "present"
+                break
+            end
+        end
+    end
+    util.log(
+        "EW-DIAG kolmi ["
+            .. tostring(tag)
+            .. "] is_host="
+            .. tostring(ctx.is_host)
+            .. " have_boss="
+            .. tostring(have_boss)
+            .. " own_boss="
+            .. own_boss
+            .. " immortal="
+            .. immortal
+            .. " shield="
+            .. shield_state
+            .. " sampo_picked="
+            .. tostring(GameHasFlagRun("ew_sampo_picked"))
+            .. (extra ~= nil and (" " .. extra) or "")
+    )
+end
+
 rpc.opts_reliable()
 function rpc.spawn_portal(x, y)
     EntityLoad("data/entities/buildings/teleport_ending_victory_delay.xml", x, y)
@@ -69,6 +112,7 @@ end
 
 rpc.opts_reliable()
 function rpc.kolmi_shield(is_on, orbcount)
+    diag_kolmi("kolmi_shield", "is_on=" .. tostring(is_on) .. " orbcount=" .. tostring(orbcount))
     local kolmi = EntityGetClosestWithTag(0, 0, "boss_centipede")
     if kolmi == nil or kolmi == 0 then
         return
@@ -98,6 +142,13 @@ rpc.opts_reliable()
 function rpc.spawn_kolmi(gid)
     if not GameHasFlagRun("ew_sampo_picked") then
         local item_id = ewext.find_by_gid(gid)
+        -- EW-DIAG: record who can resolve the sampo and who owns it vs the boss.
+        -- If "own_sampo=true" lands on a different peer than "own_boss=true", the
+        -- fight starts against an immortal puppet -> the invincibility bug.
+        diag_kolmi(
+            "spawn_kolmi",
+            "found_sampo=" .. tostring(item_id ~= nil) .. " own_sampo=" .. tostring(item_id ~= nil and util.do_i_own(item_id))
+        )
         if item_id ~= nil and util.do_i_own(item_id) then
             GameAddFlagRun("ew_sampo_picked")
             dofile("data/entities/animals/boss_centipede/sampo_pickup.lua")

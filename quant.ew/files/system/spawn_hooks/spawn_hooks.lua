@@ -40,6 +40,24 @@ local function is_sync_item(ent_path)
 end
 
 util.add_cross_call("ew_spawn_hook_pre", function(ent_path, x, y)
+    -- EW-DIAG (GH #417 / #402): log every portal/teleport spawn so we can identify
+    -- which file is "the tower portal", whether the client spawns its own copy, and
+    -- catch duplicates. Grep ew_log.txt for "EW-DIAG portal". Remove once the
+    -- synced_portals list is confirmed by a live test.
+    if type(ent_path) == "string" and string.find(ent_path, "teleport", 1, true) then
+        util.log(
+            "EW-DIAG portal spawn path="
+                .. tostring(ent_path)
+                .. " host="
+                .. tostring(ctx.is_host)
+                .. " synced="
+                .. tostring(module.entity_is_synced(ent_path))
+                .. " at "
+                .. tostring(x)
+                .. ","
+                .. tostring(y)
+        )
+    end
     if ctx.is_host then
         if is_sync_item(ent_path) then
             local ent_id = EntityLoad(ent_path, x, y)
@@ -80,7 +98,9 @@ function module.entity_is_synced(ent_path)
 
     local tags = util.load_ents_tags(ent_path)
 
-    local res = constants.phys_sync_allowed[ent_path] or table.contains(tags, "enemy")
+    local res = constants.phys_sync_allowed[ent_path]
+        or constants.synced_portals[ent_path]
+        or table.contains(tags, "enemy")
 
     entity_is_enemy_cache[ent_path] = res
     return res

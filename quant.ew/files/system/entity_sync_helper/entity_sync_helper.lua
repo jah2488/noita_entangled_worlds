@@ -102,6 +102,14 @@ for filename, _ in pairs(constants.phys_sync_allowed) do
         -- print("Updated PhysicsBody2Component in", filename)
     end]]
 end
+-- Runtime-spawned destination/return portals (GH #417, #402). Tagging them
+-- "ew_synced" makes the host's copy replicate to clients via entity_sync; the
+-- matching entry in spawn_hooks (entity_is_synced) stops clients spawning a
+-- duplicate. See constants.synced_portals for the list + caveats.
+for filename, _ in pairs(constants.synced_portals) do
+    util.add_tag_to(filename, "ew_synced")
+end
+
 local unique = {
     "data/entities/misc/orb_07_pitcheck_b.xml",
     "data/entities/misc/orb_07_pitcheck_a.xml",

@@ -279,6 +279,37 @@ module.game_effects = {
     "data/entities/misc/neutralizer_target.xml",
 }
 
+-- Destination / "return" portals that are spawned at runtime by game logic.
+-- These are NOT enemies or items, so by default they're neither replicated by
+-- entity_sync (should_be_tracked) nor suppressed on clients (entity_is_synced).
+-- Result (GH #417, #402): the host spawns the portal, clients spawn nothing or a
+-- divergent copy, so the portal "only exists for one player".
+--
+-- Listing them here makes entity_sync_helper tag them "ew_synced" (so the host's
+-- copy replicates to clients) AND makes spawn_hooks treat them as synced (so
+-- clients suppress their own local copy and rely on the replicated one).
+--
+-- NOTE: only safe for portals spawned through the director/spawn hooks or via a
+-- host-only runtime event. A portal placed directly by biome worldgen (wang/
+-- PixelScene) bypasses spawn_hooks and would DUPLICATE. The EW-DIAG portal logging
+-- (spawn_hooks) reports which file/peer spawns each portal so the set can be
+-- pruned after a live test. See GH #417 / #402.
+module.synced_portals = {
+    ["data/entities/buildings/teleport_meditation_cube.xml"] = true,
+    ["data/entities/buildings/teleport_meditation_cube_return.xml"] = true,
+    ["data/entities/buildings/teleport_excavationsite_cube_return.xml"] = true,
+    ["data/entities/buildings/teleport_hourglass.xml"] = true,
+    ["data/entities/buildings/teleport_hourglass_return.xml"] = true,
+    ["data/entities/buildings/teleport_bunker.xml"] = true,
+    ["data/entities/buildings/teleport_bunker2.xml"] = true,
+    ["data/entities/buildings/teleport_bunker_back.xml"] = true,
+    ["data/entities/buildings/teleport_robot_egg_return.xml"] = true,
+    ["data/entities/buildings/teleport_snowcave_buried_eye.xml"] = true,
+    ["data/entities/buildings/teleport_snowcave_buried_eye_return.xml"] = true,
+    ["data/entities/buildings/mystery_teleport.xml"] = true,
+    ["data/entities/buildings/mystery_teleport_back.xml"] = true,
+}
+
 module.interned_index_to_filename = {}
 module.interned_filename_to_index = {}
 
